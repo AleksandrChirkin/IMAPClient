@@ -80,51 +80,64 @@ class IMAPClient:
             folders = [f[f.find('/')+4:-2]
                        for f in list_response.split('\n')[:-1]]
             for folder in folders[:-1]:
-                number_str = ''
-                while 'EXISTS' not in number_str:
-                    self.send_message(sock, f'{self.name} SELECT {folder}\n')
-                    number_str = self.receive_message(sock).split('\n')[1]
-                print(f'{folder} FOLDER')
-                letters_number = int(number_str.split(' ')[1])
-                letter_range = range(letters_number) if self.number == -1 \
-                    else range(min(letters_number, self.number))
-                for i in letter_range:
-                    self.send_message(sock, f'{self.name} FETCH {i} '
-                                            f'(FLAGS FULL)\n')
-                    headers = self.receive_message(sock)
-                    if not headers:
-                        continue
-                    date_str = headers[headers.find("INTERNALDATE")+14:]
-                    date = date_str[:date_str.find('"')]
-                    size_str = headers[headers.find("RFC822.SIZE")+12:]
-                    size = size_str[:size_str.find(' ')]
-                    envelope = headers[headers.find("ENVELOPE")+9:
-                                       headers.find('BODY')-1]
-                    subj_str = envelope[36:] if envelope[35:38] != 'NIL' \
-                        else "- "
-                    subj = subj_str[:subj_str.find('"')]
-                    if subj[:10] == '=?utf-8?B?':
-                        subj = base64.b64decode(subj[10:]).decode('utf-8')
-                    subj = subj.replace('\n', '\\n')
-                    from_str = envelope[envelope.find('((')+2:
-                                        envelope.find('))')].split(' ')
-                    from_addr = self.get_addr(from_str)
-                    to_str = envelope[envelope.rfind('((')+2:
-                                      envelope.rfind('))')].split(' ')
-                    to_addr = self.get_addr(to_str)
-                    print(f'To: {to_addr} From: {from_addr} Subject: {subj} '
-                          f'{date} Size:{size}')
-                    body = headers[headers.find('BODY')+7:headers.rfind(')')]
-                    body_parts = body.split(')(')
-                    attaches = []
-                    for part in body_parts:
-                        if part.find("name") == -1:
-                            continue
-                        name = part[part.find("name")+7:part.find('")')]
-                        encoding = '"base64"' if '"base64"' in part \
-                            else '"8bit"'
-                        attach_size = int(part[part.find(encoding)+9:]
-                                          .split(' ')[0].replace(')', ''))
-                        attaches.append((name, attach_size))
-                    print(f'{len(attaches)} attaches: {attaches}')
-                print()
+                self.select_group(sock, folder)
+
+    def select_group(self, sock: socket, folder: str) -> None:
+        number_str = ''
+        while 'EXISTS' not in number_str:
+            self.send_message(sock, f'{self.name} SELECT {folder}\n')
+            number_str = self.receive_message(sock).split('\n')[1]
+        print(f'{folder} FOLDER')
+        letters_number = int(number_str.split(' ')[1])
+        letter_range = range(letters_number) if self.number == -1 \
+            else range(min(letters_number, self.number))
+        for i in letter_range:
+            self.fetch_letter(sock, i)
+        print()
+
+    def fetch_letter(self, sock: socket, index: int) -> None:
+        self.send_message(sock, f'{self.name} FETCH {index} '
+                                f'(FLAGS FULL)\n')
+        headers = self.receive_message(sock)
+        if not headers:
+            return
+        self.get_headers(headers)
+        self.get_body(headers)
+
+    def get_headers(self, headers: str):
+        date_str = headers[headers.find("INTERNALDATE") + 14:]
+        date = date_str[:date_str.find('"')]
+        size_str = headers[headers.find("RFC822.SIZE") + 12:]
+        size = size_str[:size_str.find(' ')]
+        envelope = headers[headers.find("ENVELOPE") + 9:
+                           headers.find('BODY') - 1]
+        subj_str = envelope[36:] if envelope[35:38] != 'NIL' \
+            else "- "
+        subj = subj_str[:subj_str.find('"')]
+        if subj[:10] == '=?utf-8?B?':
+            subj = base64.b64decode(subj[10:]).decode('utf-8')
+        subj = subj.replace('\n', '\\n')
+        from_str = envelope[envelope.find('((') + 2:
+                            envelope.find('))')].split(' ')
+        from_addr = self.get_addr(from_str)
+        to_str = envelope[envelope.rfind('((') + 2:
+                          envelope.rfind('))')].split(' ')
+        to_addr = self.get_addr(to_str)
+        print(f'To: {to_addr} From: {from_addr} Subject: {subj} '
+              f'{date} Size:{size}')
+
+    @staticmethod
+    def get_body(headers: str):
+        body = headers[headers.find('BODY') + 7:headers.rfind(')')]
+        body_parts = body.split(')(')
+        attaches = []
+        for part in body_parts:
+            if part.find("name") == -1:
+                continue
+            name = part[part.find("name") + 7:part.find('")')]
+            encoding = '"base64"' if '"base64"' in part \
+                else '"8bit"'
+            attach_size = int(part[part.find(encoding) + 9:]
+                              .split(' ')[0].replace(')', ''))
+            attaches.append((name, attach_size))
+        print(f'{len(attaches)} attaches: {attaches}')
