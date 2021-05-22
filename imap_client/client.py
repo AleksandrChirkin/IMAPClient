@@ -21,7 +21,7 @@ class IMAPClient:
         self.name = 'A001'
         self.print_lock = Lock()
 
-    def receive_message(self, sock: socket, to_b64: bool = False) -> str:
+    def receive_message(self, sock: socket) -> str:
         data = ''
         try:
             while True:
@@ -32,9 +32,6 @@ class IMAPClient:
         except timeout:
             pass
         finally:
-            if to_b64:
-                data = base64.b64decode(self.receive_message(sock)[2:]) \
-                    .decode('utf-8')
             return data
 
     @staticmethod
