@@ -22,17 +22,17 @@ class IMAPClient:
         self.print_lock = Lock()
 
     def receive_message(self, sock: socket) -> str:
-        data = ''
+        data = bytearray()
         try:
             while True:
-                received_data = sock.recv(1024).decode('utf-8')
-                data += received_data
+                received_data = sock.recv(1024)
+                data.extend(received_data)
                 if len(received_data) < 1024:
                     break
         except timeout:
             pass
         finally:
-            return data
+            return data.decode('utf-8')
 
     @staticmethod
     def send_message(sock: socket, msg: str) -> None:
