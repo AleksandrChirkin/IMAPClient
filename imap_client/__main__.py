@@ -10,7 +10,7 @@ def parse_args() -> Dict[str, Any]:
                         help='Use SSL connection')
     parser.add_argument('-s', '--server', default='imap.mail.ru:143',
                         help='Server and port')
-    parser.add_argument('-n', type=int, default=-1,
+    parser.add_argument('-n', nargs='*', default=['-1'],
                         help='Number (interval) of letters')
     parser.add_argument('-u', '--user', help='User name')
     return parser.parse_args().__dict__

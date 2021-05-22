@@ -8,12 +8,15 @@ import ssl
 
 
 class IMAPClient:
-    def __init__(self, ssl: bool, server: str, n: int, user: str):
+    def __init__(self, ssl: bool, server: str, n: List[str], user: str):
         self.ssl = ssl
         server_port = server.split(':')
         self.server = server_port[0]
         self.port = int(server_port[1])
-        self.number = n
+        if len(n) == 0 or len(n) > 2 or len(n) == 2 and\
+                (int(n[0]) > int(n[1]) or int(n[0]) < 0 or int(n[1]) < 0):
+            raise ValueError('Incorrect interval')
+        self.interval = n
         self.user = user
         self.name = 'A001'
         self.print_lock = Lock()
@@ -35,7 +38,7 @@ class IMAPClient:
             return data
 
     @staticmethod
-    def send_message(sock: socket, msg: str):
+    def send_message(sock: socket, msg: str) -> None:
         sock.send(msg.encode('utf-8'))
 
     def modify_login_and_password(self) -> str:
@@ -43,18 +46,19 @@ class IMAPClient:
                                 .encode('utf-8')).decode('utf-8')
 
     @staticmethod
-    def get_addr(addr_str: List[str]):
+    def get_addr(addr_str: List[str]) -> str:
         source_name = addr_str[0]
         if source_name[1:11] == '=?utf-8?B?':
             source_name = base64.b64decode(source_name[11:-1]) \
                 .decode('utf-8')
         else:
             source_name = ' '.join(addr_str
-                                   [:addr_str.index("NIL")])[1:-1]
+                                   [:addr_str.index("NIL")])[1:-1] \
+                if "NIL" in addr_str else ''
         return f'{addr_str[-2][1:-1]}@{addr_str[-1][1:-1]} ' \
                f'<{source_name}>'
 
-    def run(self):
+    def run(self) -> None:
         with socket(AF_INET, SOCK_STREAM) as sock:
             sock.connect((self.server, self.port))
             sock.settimeout(1)
@@ -74,7 +78,7 @@ class IMAPClient:
                                     f'{getpass.getpass()}\n')
             login_response = self.receive_message(sock)
             if 'NO' in login_response:
-                raise IMAPError(f'login failure: {login_response[3:]}')
+                raise IMAPError(login_response[5:])
             self.send_message(sock, f'{self.name} LIST \"\" *\n')
             list_response = self.receive_message(sock)
             folders = [f[f.find('/')+4:-2]
@@ -89,8 +93,11 @@ class IMAPClient:
             number_str = self.receive_message(sock).split('\n')[1]
         print(f'{folder} FOLDER')
         letters_number = int(number_str.split(' ')[1])
-        letter_range = range(letters_number) if self.number == -1 \
-            else range(min(letters_number, self.number))
+        letter_range = range(letters_number) if self.interval == ['-1'] else (
+            range(min(letters_number, int(self.interval[0])))
+            if len(self.interval) == 1
+            else range(int(self.interval[0]), int(self.interval[1]) + 1)
+        )
         for i in letter_range:
             self.fetch_letter(sock, i)
         print()
@@ -99,12 +106,12 @@ class IMAPClient:
         self.send_message(sock, f'{self.name} FETCH {index} '
                                 f'(FLAGS FULL)\n')
         headers = self.receive_message(sock)
-        if not headers:
+        if not headers or '(nothing matched)' in headers:
             return
         self.get_headers(headers)
         self.get_body(headers)
 
-    def get_headers(self, headers: str):
+    def get_headers(self, headers: str) -> None:
         date_str = headers[headers.find("INTERNALDATE") + 14:]
         date = date_str[:date_str.find('"')]
         size_str = headers[headers.find("RFC822.SIZE") + 12:]
@@ -127,7 +134,7 @@ class IMAPClient:
               f'{date} Size:{size}')
 
     @staticmethod
-    def get_body(headers: str):
+    def get_body(headers: str) -> None:
         body = headers[headers.find('BODY') + 7:headers.rfind(')')]
         body_parts = body.split(')(')
         attaches = []
