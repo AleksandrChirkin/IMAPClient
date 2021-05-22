@@ -99,17 +99,14 @@ class IMAPClient:
             else range(int(self.interval[0]), int(self.interval[1]) + 1)
         )
         for i in letter_range:
-            self.fetch_letter(sock, i)
+            self.send_message(sock, f'{self.name} FETCH {i} '
+                                    f'(FLAGS FULL)\n')
+            headers = self.receive_message(sock)
+            if not headers or '(nothing matched)' in headers:
+                break
+            self.get_headers(headers)
+            self.get_body(headers)
         print()
-
-    def fetch_letter(self, sock: socket, index: int) -> None:
-        self.send_message(sock, f'{self.name} FETCH {index} '
-                                f'(FLAGS FULL)\n')
-        headers = self.receive_message(sock)
-        if not headers or '(nothing matched)' in headers:
-            return
-        self.get_headers(headers)
-        self.get_body(headers)
 
     def get_headers(self, headers: str) -> None:
         date_str = headers[headers.find("INTERNALDATE") + 14:]
