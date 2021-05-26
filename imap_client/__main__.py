@@ -25,3 +25,6 @@ if __name__ == '__main__':
     except gaierror:
         print('Failed to connect server (DNS Error)')
         exit(1)
+    except KeyboardInterrupt:
+        print('Terminated.\n')
+        exit()

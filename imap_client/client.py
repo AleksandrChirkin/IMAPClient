@@ -21,7 +21,8 @@ class IMAPClient:
         self.name = 'A001'
         self.print_lock = Lock()
 
-    def receive_message(self, sock: socket) -> str:
+    @staticmethod
+    def receive_message(sock: socket) -> str:
         data = bytearray()
         try:
             while True:
