@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from imap_client import IMAPClient, IMAPError
-from socket import gaierror
+from socket import gaierror, timeout
 from typing import Any, Dict
 
 
@@ -24,6 +24,9 @@ if __name__ == '__main__':
         exit(1)
     except gaierror:
         print('Failed to connect server (DNS Error)')
+        exit(1)
+    except timeout:
+        print('Failed to get response from server')
         exit(1)
     except KeyboardInterrupt:
         print('Terminated.\n')
