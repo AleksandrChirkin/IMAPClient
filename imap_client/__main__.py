@@ -19,7 +19,7 @@ def parse_args() -> Dict[str, Any]:
 if __name__ == '__main__':
     try:
         IMAPClient(**parse_args()).run()
-    except IMAPError as e:
+    except (IMAPError, ValueError) as e:
         print(e)
         exit(1)
     except gaierror:

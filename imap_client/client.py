@@ -1,5 +1,5 @@
 from imap_client import IMAPError
-from socket import AF_INET, SOCK_STREAM, socket, timeout
+from socket import AF_INET, SOCK_STREAM, gaierror, socket, timeout
 from threading import Lock
 from typing import List
 import base64
@@ -11,11 +11,14 @@ class IMAPClient:
     def __init__(self, ssl: bool, server: str, n: List[str], user: str):
         self.ssl = ssl
         server_port = server.split(':')
+        if len(server_port) != 2:
+            raise ValueError('Incorrect address '
+                             '(must be in "server:port" format)')
         self.server = server_port[0]
         self.port = int(server_port[1])
         if len(n) == 0 or len(n) > 2 or len(n) == 2 and\
                 (int(n[0]) > int(n[1]) or int(n[0]) < 0 or int(n[1]) < 0):
-            raise ValueError('Incorrect interval')
+            raise ValueError('Incorrect letter interval')
         self.interval = n
         self.user = user
         self.name = 'A001'
@@ -63,7 +66,7 @@ class IMAPClient:
             try:
                 self.receive_message(sock)
             except timeout:
-                raise IMAPError('IMAP server unavailable')
+                raise gaierror
             if self.ssl:
                 self.send_message(sock, f'{self.name} STARTTLS\n')
                 self.receive_message(sock)
