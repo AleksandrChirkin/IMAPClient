@@ -94,11 +94,7 @@ class IMAPClient:
             number_str = self.receive_message(sock).split('\n')[1]
         print(f'{folder} FOLDER')
         letters_number = int(number_str.split(' ')[1])
-        letter_range = range(letters_number) if self.interval == ['-1'] else (
-            range(min(letters_number, int(self.interval[0])))
-            if len(self.interval) == 1
-            else range(int(self.interval[0]), int(self.interval[1]) + 1)
-        )
+        letter_range = self.get_range(letters_number)
         for i in letter_range:
             self.send_message(sock, f'{self.name} FETCH {i} '
                                     f'(FLAGS FULL)\n')
@@ -108,6 +104,15 @@ class IMAPClient:
             self.get_headers(headers)
             self.get_body(headers)
         print()
+
+    def get_range(self, letters_number: int):
+        if self.interval == ['-1']:
+            return range(letters_number, 0, -1)
+        if len(self.interval) == 1:
+            return range(letters_number,
+                         max(0, letters_number - int(self.interval[0])), -1)
+        return range(letters_number - int(self.interval[0]) + 1,
+                     letters_number - int(self.interval[1]), -1)
 
     def get_headers(self, headers: str) -> None:
         date_str = headers[headers.find("INTERNALDATE") + 14:]
@@ -128,8 +133,8 @@ class IMAPClient:
         to_str = envelope[envelope.rfind('((') + 2:
                           envelope.rfind('))')].split(' ')
         to_addr = self.get_addr(to_str)
-        print(f'To: {to_addr} From: {from_addr} Subject: {subj} '
-              f'{date} Size:{size}')
+        print(f'From: {from_addr} To: {to_addr} Subject: {subj} '
+              f'{date} Size: {size}')
 
     @staticmethod
     def get_body(headers: str) -> None:
